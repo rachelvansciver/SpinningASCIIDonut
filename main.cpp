@@ -2,18 +2,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-void display( const char *b, float &A, float &B) {
+void display( const char *output, float &a, float &b) {
     printf("\x1b[H");
-    for (int k = 0; k < 1761; k++) {
-        //1760 corresponds to buffer sizer
-        putchar(k % 80 ? b[k] : 10);
-        A += 0.00004;
-        B += 0.00002;
+    for (int i = 0; i < 1761; i++) {
+        //1760 corresponds to buffer size
+        putchar(i % 80 ? output[i] : 10);
+        a += 0.00004;
+        b += 0.00002;
     }
-    usleep(30000);
 }
 
-void render(float A, float B, int buffer_size, float *zBuffer, char *output, int height, int width) {
+void render(float a, float b, int buffer_size, float *zBuffer, char *output, int height, int width) {
     int outer_size = width / 40;
     //radius of outer circle
     char * lum_chars = ".,-~:;=!*#$@";
@@ -22,48 +21,48 @@ void render(float A, float B, int buffer_size, float *zBuffer, char *output, int
     memset(zBuffer, 0, buffer_size * sizeof(float));
     for (float theta = 0; theta < 6.28; theta += 0.07) {
         for (float phi = 0; phi < 6.28; phi += 0.02) {
-            /**Sin and cos of A and B and represent starting points,
+            /**Sin and cos of a and b and represent starting points,
              * Phi corresponds to rotation of center of revolution
-             * Theta corresponds to cross sectional of the donut*/
+             * Theta corresponds to cross sectional of the circleY*/
             float sinPhi = sin(phi);
             float cosTheta = cos(theta);
-            float sinA = sin(A);
+            float sinA = sin(a);
             float sinTheta = sin(theta);
-            float cosA = cos(A);
-            float h = cosTheta + outer_size;
-            //radius of outer circle
-            float depth = 1 / (sinPhi * h * sinA + sinTheta * cosA + 5);
-            //depth or normalized z
+            float cosA = cos(a);
+            float circleX = cosTheta + outer_size;
+            float circleY = sinPhi * circleX * cosA - sinTheta * sinA;
+            //x, y coord before rotating
+            float norm_z = 1 / (sinPhi * circleX * sinA + sinTheta * cosA + 5);
+            //normalized z, in this respect, z is a line from the monitor straight to your face, normalized for consistent output
             float cosPhi = cos(phi);
-            float cosB = cos(B);
-            float sinB = sin(B);
-            float donut = sinPhi * h * cosA - sinTheta * sinA;
-            int x = (width / 2) + 30 * depth * (cosPhi * h * cosB - donut * sinB);
-            int y = (height / 2 + 1) + 15 * depth * (cosPhi * h * sinB + donut * cosB);
-            int circle = x + width * y;
-            //rotation
+            float cosB = cos(b);
+            float sinB = sin(b);
+            int x = (width / 2) + 30 * norm_z * (cosPhi * circleX * cosB + circleY * sinB);
+            int y = (height / 2 + 1) + 15 * norm_z * (cosPhi * circleX * sinB - circleY * cosB);
+            //y is negative, pixel 1920 x 760 is in the top right corner of your screen, as you move to the bottom of your screen, y decreases
+            int o = x + width * y;
+            //gives cross sections of donut(level curves if you're familiar with multivariable calculus)
             int lum = 8 * ((sinTheta * sinA - sinPhi * cosTheta * cosA) * cosB - sinPhi * cosTheta * sinA - sinTheta * cosA - cosPhi * cosTheta * sinB);
             //luminance
-
-            if (height > y && y > 0 && x > 0 && width > x && depth > zBuffer[circle]) {
-                zBuffer[circle] = depth;
-                output[circle] = lum_chars[lum > 0 ? lum : 0];
+            if (height > y && y > 0 && x > 0 && width > x && norm_z > zBuffer[o]) {
+                zBuffer[o] = norm_z;
+                output[o] = lum_chars[lum > 0 ? lum : 0];
             }
         }
     }
 }
 int main() {
-    float	x = 0, y = 0;
-    int buffer_size = 1760;
-    float zBuffer[buffer_size];
-    char output[buffer_size];
+    float	a = 0, b = 0;
     int height = 22;
     int width = 80;
+    int buffer_size = height * width;
+    float zBuffer[buffer_size];
+    char output[buffer_size];
 
     printf("\x1b[2J");
     for (;;) {
-        render(x, y, buffer_size, zBuffer, output, height, width);
-        display(output, x, y);
+        render(a, b, buffer_size, zBuffer, output, height, width);
+        display(output, a, b);
     }
     return 0;
 }
